@@ -1,5 +1,6 @@
 import { FastifyInstance } from 'fastify';
 import { PDFValidator } from '../lib/pdf-validator.js';
+import crypto from 'crypto';
 
 export async function verifyRoutes(fastify: FastifyInstance) {
   
@@ -101,7 +102,7 @@ export async function verifyRoutes(fastify: FastifyInstance) {
         });
       }
 
-      const verificationResult = await verifyResponse.json();
+      const verificationResult = await verifyResponse.json() as any;
       console.log('✅ AcadCert verification result:', JSON.stringify(verificationResult, null, 2));
 
       // Step 5: Map AcadCert response to VeriCert format
@@ -119,7 +120,20 @@ export async function verifyRoutes(fastify: FastifyInstance) {
           revocationStatus: verificationResult.checks?.notRevoked || false
         },
         details: mapVerificationDetails(verificationResult),
-        verifiedAt: new Date().toISOString()
+        verifiedAt: new Date().toISOString(),
+        receipt: {
+          id: `rcpt_${crypto.randomBytes(12).toString('hex')}`,
+          documentId: metadata.documentId,
+          verifiedAt: new Date().toISOString(),
+          result: verificationResult.valid ? 'VALID' : 'INVALID',
+          checks: {
+            signature: verificationResult.checks?.signatureValid || false,
+            authority: verificationResult.checks?.authorityValid || false,
+            revocation: verificationResult.checks?.notRevoked || false
+          },
+          institution: verificationResult.institution?.name || 'Unknown',
+          documentType: verificationResult.document?.type || 'Unknown'
+        }
       });
 
     } catch (error: any) {
